@@ -1,28 +1,29 @@
 import React, { useState } from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { Header } from './components/Header';
-import { MovieGrid } from './components/MovieGrid';
-import { MoviePlayer } from './components/MoviePlayer';
+import { DoramaGrid } from './components/DoramaGrid';
+import { DoramaPage } from './components/DoramaPage';
+import { LoginModal } from './components/LoginModal';
+import { PlanModal } from './components/PlanModal';
 import { AdminRoute } from './components/AdminRoute';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { useMovies } from './hooks/useMovies';
-import { Movie, MovieCategory } from './types';
+import { Movie } from './types';
 
 function HomePage() {
   const { loading: authLoading } = useAuth();
-  const [activeCategory, setActiveCategory] = useState<MovieCategory | 'all'>('all');
-  const [selectedMovie, setSelectedMovie] = useState<Movie | null>(null);
+  const [selectedDorama, setSelectedDorama] = useState<Movie | null>(null);
+  const [showLoginModal, setShowLoginModal] = useState(false);
+  const [showPlanModal, setShowPlanModal] = useState(false);
 
-  const { movies, loading: moviesLoading } = useMovies(
-    activeCategory === 'all' ? undefined : activeCategory
-  );
+  const { movies: doramas, loading: doramasLoading } = useMovies();
 
-  const handleMovieClick = (movie: Movie) => {
-    setSelectedMovie(movie);
+  const handleDoramaClick = (dorama: Movie) => {
+    setSelectedDorama(dorama);
   };
 
-  const handleClosePlayer = () => {
-    setSelectedMovie(null);
+  const handleBackToHome = () => {
+    setSelectedDorama(null);
   };
 
   if (authLoading) {
@@ -36,11 +37,32 @@ function HomePage() {
     );
   }
 
+  if (selectedDorama) {
+    return (
+      <>
+        <DoramaPage
+          dorama={selectedDorama}
+          onBack={handleBackToHome}
+          onLoginClick={() => setShowLoginModal(true)}
+          onPlanClick={() => setShowPlanModal(true)}
+        />
+        <LoginModal 
+          isOpen={showLoginModal} 
+          onClose={() => setShowLoginModal(false)} 
+        />
+        <PlanModal 
+          isOpen={showPlanModal} 
+          onClose={() => setShowPlanModal(false)} 
+        />
+      </>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-white">
       <Header
-        activeCategory={activeCategory}
-        onCategoryChange={setActiveCategory}
+        onLoginClick={() => setShowLoginModal(true)}
+        onPlanClick={() => setShowPlanModal(true)}
       />
 
       <main className="container mx-auto px-3 md:px-4 py-4 md:py-8">
@@ -50,33 +72,35 @@ function HomePage() {
             Bem-vindo ao <span className="text-red-600">Vazadinhas</span>
           </h1>
           <p className="text-sm md:text-xl text-gray-600 max-w-2xl mx-auto px-4">
-            Descubra e assista aos melhores filmes organizados por categoria
+            Descubra e assista aos melhores doramas coreanos com qualidade HD
           </p>
         </div>
 
-        {/* Category Title */}
+        {/* Featured Section */}
         <div className="mb-4 md:mb-8">
           <h2 className="text-lg md:text-2xl font-bold text-black">
-            {activeCategory === 'all' 
-              ? 'Todos os Filmes' 
-              : `${activeCategory.charAt(0).toUpperCase() + activeCategory.slice(1)}`
-            }
+            Doramas em Destaque
           </h2>
           <div className="w-12 md:w-20 h-1 bg-red-600 mt-1 md:mt-2"></div>
         </div>
 
-        {/* Movies Grid */}
-        <MovieGrid
-          movies={movies}
-          onMovieClick={handleMovieClick}
-          loading={moviesLoading}
+        {/* Doramas Grid */}
+        <DoramaGrid
+          doramas={doramas}
+          onDoramaClick={handleDoramaClick}
+          loading={doramasLoading}
         />
       </main>
 
-      {/* Movie Player Modal */}
-      {selectedMovie && (
-        <MoviePlayer movie={selectedMovie} onClose={handleClosePlayer} />
-      )}
+      {/* Modals */}
+      <LoginModal 
+        isOpen={showLoginModal} 
+        onClose={() => setShowLoginModal(false)} 
+      />
+      <PlanModal 
+        isOpen={showPlanModal} 
+        onClose={() => setShowPlanModal(false)} 
+      />
     </div>
   );
 }

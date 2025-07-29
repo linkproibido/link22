@@ -6,6 +6,7 @@ interface AuthContextType {
   user: User | null;
   loading: boolean;
   signIn: (email: string, password: string) => Promise<void>;
+  signUp: (email: string, password: string, fullName?: string) => Promise<void>;
   signOut: () => Promise<void>;
 }
 
@@ -23,7 +24,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     });
 
     // Listen for auth changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       setUser(session?.user ?? null);
       setLoading(false);
     });
@@ -32,33 +33,41 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const signIn = async (email: string, password: string) => {
-    // Primeiro tenta fazer login
-    const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({ 
+    const { error } = await supabase.auth.signInWithPassword({ 
       email, 
       password 
     });
     
-    // Se o usuário não existe, cria automaticamente
-    if (signInError && signInError.message.includes('Invalid login credentials')) {
-      const { error: signUpError } = await supabase.auth.signUp({
-        email,
-        password,
-        options: {
-          emailRedirectTo: undefined // Desabilita confirmação por email
+    if (error) throw error;
+  };
+
+  const signUp = async (email: string, password: string, fullName?: string) => {
+    const { data, error } = await supabase.auth.signUp({
+      email,
+      password,
+      options: {
+        data: {
+          full_name: fullName,
         }
-      });
-      
-      if (signUpError) throw signUpError;
-      
-      // Após criar, faz login automaticamente
-      const { error: autoSignInError } = await supabase.auth.signInWithPassword({ 
-        email, 
-        password 
-      });
-      
-      if (autoSignInError) throw autoSignInError;
-    } else if (signInError) {
-      throw signInError;
+      }
+    });
+    
+    if (error) throw error;
+
+    // Create user profile in our users table
+    if (data.user) {
+      const { error: profileError } = await supabase
+        .from('users')
+        .insert([{
+          id: data.user.id,
+          email: data.user.email!,
+          full_name: fullName,
+          role: 'user'
+        }]);
+
+      if (profileError) {
+        console.error('Error creating user profile:', profileError);
+      }
     }
   };
 
@@ -68,7 +77,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, loading, signIn, signOut }}>
+    <AuthContext.Provider value={{ user, loading, signIn, signUp, signOut }}>
       {children}
     </AuthContext.Provider>
   );

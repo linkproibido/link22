@@ -17,10 +17,11 @@ export function useMovies(category?: MovieCategory) {
       let query = supabase
         .from('movies')
         .select('*')
+        .eq('is_active', true)
         .order('created_at', { ascending: false });
 
       if (category) {
-        query = query.eq('category', category);
+        query = query.eq('genre', category);
       }
 
       const { data, error } = await query;
@@ -28,9 +29,26 @@ export function useMovies(category?: MovieCategory) {
       if (error) throw error;
       setMovies(data || []);
     } catch (error) {
-      setError(error instanceof Error ? error.message : 'Erro ao carregar filmes');
+      setError(error instanceof Error ? error.message : 'Erro ao carregar doramas');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const getMovieById = async (id: string): Promise<Movie | null> => {
+    try {
+      const { data, error } = await supabase
+        .from('movies')
+        .select('*')
+        .eq('id', id)
+        .eq('is_active', true)
+        .single();
+
+      if (error) throw error;
+      return data;
+    } catch (error) {
+      console.error('Erro ao buscar dorama:', error);
+      return null;
     }
   };
 
@@ -40,7 +58,9 @@ export function useMovies(category?: MovieCategory) {
         .from('movies')
         .insert([{
           ...movie,
-          updated_at: new Date().toISOString()
+          is_active: true,
+          sales_count: 0,
+          price: 2000, // R$ 20,00 em centavos
         }])
         .select()
         .single();
@@ -49,7 +69,7 @@ export function useMovies(category?: MovieCategory) {
       setMovies(prev => [data, ...prev]);
       return data;
     } catch (error) {
-      throw error instanceof Error ? error : new Error('Erro ao adicionar filme');
+      throw error instanceof Error ? error : new Error('Erro ao adicionar dorama');
     }
   };
 
@@ -57,10 +77,7 @@ export function useMovies(category?: MovieCategory) {
     try {
       const { data, error } = await supabase
         .from('movies')
-        .update({
-          ...updates,
-          updated_at: new Date().toISOString()
-        })
+        .update(updates)
         .eq('id', id)
         .select()
         .single();
@@ -69,7 +86,7 @@ export function useMovies(category?: MovieCategory) {
       setMovies(prev => prev.map(movie => movie.id === id ? data : movie));
       return data;
     } catch (error) {
-      throw error instanceof Error ? error : new Error('Erro ao atualizar filme');
+      throw error instanceof Error ? error : new Error('Erro ao atualizar dorama');
     }
   };
 
@@ -77,13 +94,13 @@ export function useMovies(category?: MovieCategory) {
     try {
       const { error } = await supabase
         .from('movies')
-        .delete()
+        .update({ is_active: false })
         .eq('id', id);
 
       if (error) throw error;
       setMovies(prev => prev.filter(movie => movie.id !== id));
     } catch (error) {
-      throw error instanceof Error ? error : new Error('Erro ao deletar filme');
+      throw error instanceof Error ? error : new Error('Erro ao deletar dorama');
     }
   };
 
@@ -94,6 +111,7 @@ export function useMovies(category?: MovieCategory) {
     addMovie,
     updateMovie,
     deleteMovie,
+    getMovieById,
     refetch: fetchMovies,
   };
 }
